@@ -23,6 +23,7 @@ class PIDController:
         ref = 0.5
         diff = ref - x_ort
         self.integral_sum += diff
+        self.integral_sum = max(-20.0, min(20.0, self.integral_sum))  # anti-windup
         d_value = diff - self.prev_diff
         self.prev_diff = diff
 
@@ -49,6 +50,7 @@ def main(command_queue: Queue, telemetry_queue: Queue, frame_queue: Queue) -> No
 
     mode = "AUTONOMOUS"
     last_ai_query_time = 0.0
+    last_motor_time = 0.0
     current_ai_decision = {"action": "SEARCH", "target_label": "none", "reasoning": "Initializing"}
 
     while True:
@@ -65,16 +67,28 @@ def main(command_queue: Queue, telemetry_queue: Queue, frame_queue: Queue) -> No
 
             frame = vs.read()
             detections = yolo.detect(frame)
-            x_ort = 0.5
+
+            # Välj ut målet som AI-agenten pekat på (annars ingen styrning)
+            label_wanted = current_ai_decision.get("target_label")
+            target = None
+            for det in detections:
+                if label_wanted in (None, "none") or det["label"] == label_wanted:
+                    target = det
+                    break
+            x_ort = target["x_ort"] if target is not None else 0.5
 
             # 2. Hämta beslut från AI-agenten (Icke-blockerande)
             if time.time() - last_ai_query_time > 1.0:
                 current_ai_decision = agent.decide_action(detections)
                 last_ai_query_time = time.time()
 
-            # 3. Motorstyrning
-            if mode == "AUTONOMOUS":
-                if current_ai_decision.get("action") == "TRACK_TARGET":
+            # 3. Motorstyrning (max ett kommando var 40 ms -> undviker serieflood)
+            action = current_ai_decision.get("action")
+            if mode == "AUTONOMOUS" and time.time() - last_motor_time >= 0.04:
+                last_motor_time = time.time()
+                if action == "STOP":
+                    motors.set_motors(0.0, 0.0)
+                elif action == "TRACK_TARGET" and target is not None:
                     left_spd, right_spd = pid.compute(x_ort)
                     motors.set_motors(left_spd, right_spd)
                 else:
