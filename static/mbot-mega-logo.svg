@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 96" role="img" aria-labelledby="logo-title logo-desc">
+    <title id="logo-title">MBOT MEGA</title>
+    <desc id="logo-desc">MBOT MEGA med en enkel robotikon</desc>
+    <g fill="none" stroke="#a7e3ca" stroke-linecap="round" stroke-linejoin="round" stroke-width="5">
+        <rect x="5" y="18" width="60" height="52" rx="14"/>
+        <path d="M35 18V8"/>
+        <circle cx="35" cy="6" r="3" fill="#7ff0af" stroke="none"/>
+        <circle cx="24" cy="43" r="5" fill="#7ff0af" stroke="none"/>
+        <circle cx="46" cy="43" r="5" fill="#7ff0af" stroke="none"/>
+        <path d="M22 57h26"/>
+    </g>
+    <text x="86" y="62" fill="#ffffff" font-family="Verdana, sans-serif" font-size="45" font-weight="700" letter-spacing="3">MBOT MEGA</text>
+</svg>
