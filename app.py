@@ -27,6 +27,9 @@ def telemetry_loop() -> None:
 
 
 def gen_frames() -> Generator[bytes, None, None]:
+    frame_count = 0
+    last_fps_update = time.monotonic()
+
     while True:
         try:
             # Töm kön helt för att BARA plocka den absolut senaste bildrutan!
@@ -35,6 +38,16 @@ def gen_frames() -> Generator[bytes, None, None]:
                 frame_bytes = frame_queue.get_nowait()
 
             if frame_bytes is not None:
+                frame_count += 1
+                now = time.monotonic()
+                elapsed = now - last_fps_update
+                if elapsed >= 1:
+                    socketio.emit('video_fps', {
+                        'fps': round(frame_count / elapsed),
+                    })
+                    frame_count = 0
+                    last_fps_update = now
+
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
         except queue.Empty:
@@ -42,8 +55,8 @@ def gen_frames() -> Generator[bytes, None, None]:
         except Exception as e:
             print(f"[STREAM ERROR] {e}")
 
-        # Begränsa webbflödet till ~15 FPS så att nätverket aldrig blir överbelastat
-        time.sleep(0.066)
+        # Begränsa webbflödet till ~30 FPS så att nätverket inte blir överbelastat
+        time.sleep(0.033)
 
 
 @app.route('/')

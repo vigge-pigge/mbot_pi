@@ -28,27 +28,7 @@
                     <p class="subtitle">Livevideo och telemetri mBot Mega.</p>
                 </header>
 
-                <svg class="glass-definitions" aria-hidden="true">
-                    <defs>
-                        <filter id="lg" x="-20%" y="-20%" width="140%" height="140%">
-                            <feTurbulence
-                                type="fractalNoise"
-                                baseFrequency="0.01 0.01"
-                                numOctaves="3"
-                                result="noise"
-                            />
-                            <feDisplacementMap
-                                in="SourceGraphic"
-                                in2="noise"
-                                scale="10"
-                                xChannelSelector="R"
-                                yChannelSelector="G"
-                            />
-                        </filter>
-                    </defs>
-                </svg>
-
-                <section class="video-card glass-panel" aria-labelledby="video-title">
+                <section class="video-card panel" aria-labelledby="video-title">
                     <div class="section-heading">
                         <div>
                             <p class="section-kicker">Kamera 01</p>
@@ -61,7 +41,7 @@
                     </div>
                 </section>
 
-                <section class="status-panel glass-panel" aria-labelledby="status-title">
+                <section class="status-panel panel" aria-labelledby="status-title">
                     <div class="section-heading">
                         <div>
                             <p class="section-kicker">System</p>
@@ -76,6 +56,10 @@
                         <p class="status-item">
                             <span class="label">Senaste uppdatering</span>
                             <span id="timestamp" class="telemetry-value">-</span>
+                        </p>
+                        <p class="status-item">
+                            <span class="label">FPS</span>
+                            <span id="fps" class="telemetry-value">0 FPS</span>
                         </p>
                     </div>
                 </section>
@@ -97,12 +81,21 @@
                     </div>
                 </div>
             </footer>
-        </div>
     </div>
 
     <script>
         const socket = io();
         const statusElement = document.getElementById('status');
+        const fpsElement = document.getElementById('fps');
+        let fpsTimeout;
+
+        socket.on('video_fps', (data) => {
+            fpsElement.innerText = `${data.fps} FPS`;
+            clearTimeout(fpsTimeout);
+            fpsTimeout = setTimeout(() => {
+                fpsElement.innerText = '0 FPS';
+            }, 2000);
+        });
 
         socket.on('connect', () => {
             statusElement.innerText = 'Connected';
