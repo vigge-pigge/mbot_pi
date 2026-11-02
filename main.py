@@ -3,7 +3,7 @@ import time
 import queue
 import cv2
 import numpy as np
-from yolo_detector import YoloDetector
+from hailo_detector import HailoDetector
 from datetime import datetime
 from multiprocessing import Queue
 from camera import VideoStream
@@ -42,7 +42,7 @@ class PIDController:
 def main(command_queue: Queue, telemetry_queue: Queue, frame_queue: Queue) -> None:
     print("[MAIN] Starting robot control process...")
 
-    yolo = YoloDetector()
+    yolo = HailoDetector(hef_path="yolov8s.hef", conf_threshold=0.45)
     vs = VideoStream(resolution=(640, 480)).start()
     pid = PIDController(kp=200.0, ki=5.0, kd=20.0)
     motors = MegaPiDriver()
