@@ -11,11 +11,9 @@ HAILO_APPS_ROOT = Path.home() / "hailo-apps"
 if str(HAILO_APPS_ROOT) not in sys.path:
     sys.path.insert(0, str(HAILO_APPS_ROOT))
 
-from hailo_apps.python.core.common.hailo_inference import HailoInfer
-from hailo_apps.python.core.common.toolbox import get_labels
-from hailo_apps.python.standalone_apps.object_detection.object_detection_post_process import (
-    extract_detections,
-)
+from hailo_apps.python.core.common.hailo_inference import HailoInfer  # pyright: ignore[reportMissingImports]
+from hailo_apps.python.core.common.toolbox import get_labels  # pyright: ignore[reportMissingImports]
+from hailo_apps.python.standalone_apps.object_detection.object_detection_post_process import extract_detections  # pyright: ignore[reportMissingImports]
 
 
 class HailoDetector:
@@ -98,16 +96,21 @@ class HailoDetector:
                          if int(cls_id) < len(self._labels) else str(cls_id))
                 x1, y1, x2, y2 = [int(v) for v in box]
                 x_ort = ((x1 + x2) / 2.0) / w
+                y_ort = ((y1 + y2) / 2.0) / h
+                area = ((x2 - x1) * (y2 - y1)) / float(w * h)
                 detections.append({
                     "label": label,
                     "confidence": round(float(score), 2),
                     "x_ort": round(x_ort, 3),
+                    "y_ort": round(y_ort, 3),
+                    "area": round(area, 4),
                     "box": [x1, y1, x2, y2],
                 })
 
             self.latest_detections = detections
             summary = ", ".join(
-                f"{d['label']} ({int(d['confidence']*100)}%, x={d['x_ort']:.2f})"
+                f"{d['label']} ({int(d['confidence']*100)}%, "
+                f"x={d['x_ort']:.2f}, y={d['y_ort']:.2f}, area={d['area']:.4f})"
                 for d in detections
             )
             print(f"[HAILO {self.last_inference_ms:.1f}ms] Ser: {summary}")
