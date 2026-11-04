@@ -88,7 +88,8 @@ def main(command_queue: Queue, telemetry_queue: Queue, frame_queue: Queue) -> No
 
             # 2. Hämta beslut från AI-agenten (Icke-blockerande)
             if time.time() - last_ai_query_time > 1.0:
-                new_decision = agent.decide_action(detections)
+                new_decision = agent.decide_action(detections, event=pending_event)
+                pending_event = None  # agenten har fatt händelsen, rensa har
                 action = new_decision.get("action")
                 if state != "STOP" or action != "TRACK_TARGET" or (
                     reached_target_label is not None
@@ -135,9 +136,12 @@ def main(command_queue: Queue, telemetry_queue: Queue, frame_queue: Queue) -> No
                         forward = max(0.0, min(MAX_FORWARD, K_DIST * (AREA_REF - target["area"])))
                         left_spd, right_spd = pid.compute(x_ort, forward)
                         motors.set_motors(left_spd, right_spd)
-                    else:
-                        left_spd, right_spd = pid.compute(x_ort)
-                        motors.set_motors(left_spd, right_spd)
+                    else:  # area >= AREA_STANN -> mattekt, redan nara nog
+                        state = "STOP"
+                        reached_target_label = target.get("label")
+                        pending_event = "TARGET_REACHED"
+                        print("[MAIN] TARGET_REACHED")
+                        motors.set_motors(0.0, 0.0)
                 elif state == "APPROACH":
                     if action == "SEARCH":
                         state = "SEARCH"
