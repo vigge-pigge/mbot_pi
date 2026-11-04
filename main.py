@@ -208,7 +208,6 @@ def main(command_queue: Queue, telemetry_queue: Queue, frame_queue: Queue) -> No
                 "area": target.get("area") if target is not None else None,
                 "event": pending_event,
             }
-            pending_event = None
             try:
                 telemetry_queue.get_nowait()
             except queue.Empty:

@@ -13,7 +13,9 @@ class CognitiveAgent:
         self.system_prompt = (
             "You are the cognitive brain of an autonomous mBot Mega robot. "
             "Respond ONLY with a valid JSON object matching this schema:\n"
-            '{"action": "TRACK_TARGET" | "SEARCH" | "STOP", "target_label": "string", "reasoning": "string"}'
+            '{"action": "TRACK_TARGET" | "SEARCH" | "STOP", "target_label": "string", "reasoning": "string"}\n'
+            "Rules: If the robot event TARGET_REACHED is given, that target is completed. "
+            "Pick a new target_label from the detections, or answer STOP if the mission is complete."
         )
         self.latest_decision = {
             "action": "SEARCH",
@@ -22,8 +24,9 @@ class CognitiveAgent:
         }
         self.is_querying = False
 
-    def _query_ollama_thread(self, detections: List[Dict[str, Any]]) -> None:
-        prompt = f"System: {self.system_prompt}\nInput Detections: {json.dumps(detections)}"
+    def _query_ollama_thread(self, detections: List[Dict[str, Any]], event: str = None) -> None:
+        event_text = f"\nRobot event: {event}" if event else ""
+        prompt = f"System: {self.system_prompt}\nInput Detections: {json.dumps(detections)}{event_text}"
         payload = {
             "model": self.model_name,
             "prompt": prompt,
@@ -54,11 +57,11 @@ class CognitiveAgent:
         finally:
             self.is_querying = False
 
-    def decide_action(self, detections: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def decide_action(self, detections: List[Dict[str, Any]], event: str = None) -> Dict[str, Any]:
         """Returnerar senaste beslutet OMEDELBART utan att låsa huvudloopen."""
         if not self.is_querying:
             self.is_querying = True
-            thread = threading.Thread(target=self._query_ollama_thread, args=(detections,), daemon=True)
+            thread = threading.Thread(target=self._query_ollama_thread, args=(detections, event), daemon=True)
             thread.start()
 
         return self.latest_decision
