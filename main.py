@@ -61,6 +61,7 @@ def main(command_queue: Queue, telemetry_queue: Queue, frame_queue: Queue) -> No
     current_ai_decision = {"action": "IDLE", "target_label": "none", "reasoning": "Waiting for AI assignment"}
     reached_target_label = None
     pending_event = None
+    prev_state = None
 
     while True:
         try:
@@ -91,6 +92,7 @@ def main(command_queue: Queue, telemetry_queue: Queue, frame_queue: Queue) -> No
                 new_decision = agent.decide_action(detections, event=pending_event)
                 pending_event = None  # agenten har fatt händelsen, rensa har
                 action = new_decision.get("action")
+                print(f"[AI] action={new_decision.get('action')} target={new_decision.get('target_label')} | {str(new_decision.get('reasoning'))[:80]}")
                 if state != "STOP" or action != "TRACK_TARGET" or (
                     reached_target_label is not None
                     and new_decision.get("target_label") != reached_target_label
@@ -116,13 +118,13 @@ def main(command_queue: Queue, telemetry_queue: Queue, frame_queue: Queue) -> No
                     elif action == "STOP":
                         state = "STOP"
                     if state == "SEARCH":
-                        motors.set_motors(-30.0, 30.0)
+                        motors.set_motors(-20.0, 20.0)
                     else:
                         motors.set_motors(0.0, 0.0)
                 elif state == "TRACK":
                     if action == "SEARCH":
                         state = "SEARCH"
-                        motors.set_motors(-30.0, 30.0)
+                        motors.set_motors(-20.0, 20.0)
                     elif action == "STOP":
                         state = "STOP"
                         motors.set_motors(0.0, 0.0)
@@ -145,7 +147,7 @@ def main(command_queue: Queue, telemetry_queue: Queue, frame_queue: Queue) -> No
                 elif state == "APPROACH":
                     if action == "SEARCH":
                         state = "SEARCH"
-                        motors.set_motors(-30.0, 30.0)
+                        motors.set_motors(-20.0, 20.0)
                     elif action == "STOP":
                         state = "STOP"
                         motors.set_motors(0.0, 0.0)
@@ -181,6 +183,9 @@ def main(command_queue: Queue, telemetry_queue: Queue, frame_queue: Queue) -> No
                     motors.set_motors(0.0, 0.0)
 
             # 4. HÄR RITAS YOLO-RUTORNA UT OCH SKICKAS TILL WEBBPLATSEN
+            if state != prev_state:
+                print(f"[STATE] {prev_state} -> {state} | target={current_ai_decision.get('target_label')} x_ort={x_ort:.2f}")
+                prev_state = state
             if frame is not None and frame.size > 0:
                 # Rita rutorna från senaste YOLO-detekteringen på webb-bilden
                 annotated_frame = yolo.draw_boxes(frame, detections)
