@@ -24,7 +24,7 @@ class CognitiveAgent:
         }
         self.is_querying = False
 
-        def _query_ollama_thread(self, detections: List[Dict[str, Any]], event: str | None = None) -> None:
+    def _query_ollama_thread(self, detections: List[Dict[str, Any]], event: str | None = None) -> None:
         event_text = f"\nRobot event: {event}" if event else ""
         prompt = f"System: {self.system_prompt}\nInput Detections: {json.dumps(detections)}{event_text}"
         payload = {
@@ -57,7 +57,7 @@ class CognitiveAgent:
         finally:
             self.is_querying = False
 
-        def decide_action(self, detections: List[Dict[str, Any]], event: str | None = None) -> Dict[str, Any]:
+    def decide_action(self, detections: List[Dict[str, Any]], event: str | None = None) -> Dict[str, Any]:
         """Returnerar senaste beslutet OMEDELBART utan att låsa huvudloopen."""
         if not self.is_querying:
             self.is_querying = True
