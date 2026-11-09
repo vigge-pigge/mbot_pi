@@ -11,10 +11,12 @@ from motor_driver import MegaPiDriver
 from ai_agent import CognitiveAgent
 
 
-AREA_STANN = 0.63 #2m: 0,0735 1,5m: 0,1288 1m: 0,2208 0,5m: 0,6350
-AREA_REF = 0.40
+AREA_STANN = 0.22   # kalibrerat: person pa ~1 m
+AREA_REF = 0.30
 K_DIST = 200.0
 MAX_FORWARD = 60.0
+SEARCH_ROTATE_S = 0.8   # snurrfaser i SEARCH
+SEARCH_PAUSE_S = 1.2     # paus for detektering
 
 
 class PIDController:
@@ -61,6 +63,8 @@ def main(command_queue: Queue, telemetry_queue: Queue, frame_queue: Queue) -> No
     current_ai_decision = {"action": "IDLE", "target_label": "none", "reasoning": "Waiting for AI assignment"}
     reached_target_label = None
     pending_event = None
+    search_rotating = False
+    search_next_switch = 0.0
     completed_labels = set()
     prev_state = None
 
@@ -119,14 +123,22 @@ def main(command_queue: Queue, telemetry_queue: Queue, frame_queue: Queue) -> No
                         state = "TRACK"
                     elif action == "STOP":
                         state = "STOP"
+                    now = time.time()
                     if state == "SEARCH":
-                        motors.set_motors(-20.0, 20.0)
+                        if now >= search_next_switch:
+                            search_rotating = not search_rotating
+                            search_next_switch = now + (SEARCH_ROTATE_S if search_rotating else SEARCH_PAUSE_S)
+                        if search_rotating:
+                            motors.set_motors(-25.0, 25.0)
+                        else:
+                            motors.set_motors(0.0, 0.0)
                     else:
+                        search_rotating = False
                         motors.set_motors(0.0, 0.0)
                 elif state == "TRACK":
                     if action == "SEARCH":
                         state = "SEARCH"
-                        motors.set_motors(-20.0, 20.0)
+                        search_next_switch = 0.0
                     elif action == "STOP":
                         state = "STOP"
                         motors.set_motors(0.0, 0.0)
@@ -150,7 +162,7 @@ def main(command_queue: Queue, telemetry_queue: Queue, frame_queue: Queue) -> No
                 elif state == "APPROACH":
                     if action == "SEARCH":
                         state = "SEARCH"
-                        motors.set_motors(-20.0, 20.0)
+                        search_next_switch = 0.0
                     elif action == "STOP":
                         state = "STOP"
                         motors.set_motors(0.0, 0.0)
