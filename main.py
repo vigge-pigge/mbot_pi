@@ -89,7 +89,11 @@ def main(command_queue: Queue, telemetry_queue: Queue, frame_queue: Queue) -> No
 
             # 2. Hämta beslut från AI-agenten (Icke-blockerande)
             if time.time() - last_ai_query_time > 1.0:
-                new_decision = agent.decide_action(detections, event=pending_event)
+                if reached_target_label is not None:
+                    dets_for_agent = [d for d in detections if d.get("label") != reached_target_label]
+                else:
+                    dets_for_agent = detections
+                new_decision = agent.decide_action(dets_for_agent, event=pending_event)
                 pending_event = None  # agenten har fatt händelsen, rensa har
                 action = new_decision.get("action")
                 print(f"[AI] action={new_decision.get('action')} target={new_decision.get('target_label')} | {str(new_decision.get('reasoning'))[:80]}")
@@ -157,7 +161,7 @@ def main(command_queue: Queue, telemetry_queue: Queue, frame_queue: Queue) -> No
                     elif target is not None and target.get("area", 0.0) >= AREA_STANN:
                         state = "STOP"
                         reached_target_label = target.get("label")
-                        pending_event = "TARGET_REACHED"
+                        pending_event = f"TARGET_REACHED {target.get('label')}"
                         print("[MAIN] TARGET_REACHED")
                         motors.set_motors(0.0, 0.0)
                     elif target is None:
