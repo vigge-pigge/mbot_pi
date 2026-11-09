@@ -16,7 +16,7 @@ AREA_REF = 0.30
 K_DIST = 200.0
 MAX_FORWARD = 60.0
 SEARCH_ROTATE_S = 0.8   # snurrfaser i SEARCH
-SEARCH_PAUSE_S = 1.2     # paus for detektering
+SEARCH_PAUSE_S = 2     # paus for detektering
 
 
 class PIDController:
