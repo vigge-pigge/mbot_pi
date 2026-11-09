@@ -11,7 +11,7 @@ from motor_driver import MegaPiDriver
 from ai_agent import CognitiveAgent
 
 
-AREA_STANN = 0.25
+AREA_STANN = 0.63 #2m: 0,0735 1,5m: 0,1288 1m: 0,2208 0,5m: 0,6350
 AREA_REF = 0.40
 K_DIST = 200.0
 MAX_FORWARD = 60.0
@@ -61,6 +61,7 @@ def main(command_queue: Queue, telemetry_queue: Queue, frame_queue: Queue) -> No
     current_ai_decision = {"action": "IDLE", "target_label": "none", "reasoning": "Waiting for AI assignment"}
     reached_target_label = None
     pending_event = None
+    completed_labels = set()
     prev_state = None
 
     while True:
@@ -89,10 +90,7 @@ def main(command_queue: Queue, telemetry_queue: Queue, frame_queue: Queue) -> No
 
             # 2. Hämta beslut från AI-agenten (Icke-blockerande)
             if time.time() - last_ai_query_time > 1.0:
-                if reached_target_label is not None:
-                    dets_for_agent = [d for d in detections if d.get("label") != reached_target_label]
-                else:
-                    dets_for_agent = detections
+                dets_for_agent = [d for d in detections if d.get("label") not in completed_labels]
                 new_decision = agent.decide_action(dets_for_agent, event=pending_event)
                 pending_event = None  # agenten har fatt händelsen, rensa har
                 action = new_decision.get("action")
@@ -145,7 +143,8 @@ def main(command_queue: Queue, telemetry_queue: Queue, frame_queue: Queue) -> No
                     else:  # area >= AREA_STANN -> mattekt, redan nara nog
                         state = "STOP"
                         reached_target_label = target.get("label")
-                        pending_event = "TARGET_REACHED"
+                        completed_labels.add(target.get("label"))
+                        pending_event = f"TARGET_REACHED {target.get('label')}"
                         print("[MAIN] TARGET_REACHED")
                         motors.set_motors(0.0, 0.0)
                 elif state == "APPROACH":
@@ -161,6 +160,7 @@ def main(command_queue: Queue, telemetry_queue: Queue, frame_queue: Queue) -> No
                     elif target is not None and target.get("area", 0.0) >= AREA_STANN:
                         state = "STOP"
                         reached_target_label = target.get("label")
+                        completed_labels.add(target.get("label"))
                         pending_event = f"TARGET_REACHED {target.get('label')}"
                         print("[MAIN] TARGET_REACHED")
                         motors.set_motors(0.0, 0.0)
@@ -177,6 +177,7 @@ def main(command_queue: Queue, telemetry_queue: Queue, frame_queue: Queue) -> No
                     ):
                         reached_target_label = None
                         if action == "SEARCH":
+                            completed_labels.clear()
                             state = "SEARCH"
                         elif action == "TRACK_TARGET":
                             state = "TRACK"
