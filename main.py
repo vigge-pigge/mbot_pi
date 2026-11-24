@@ -16,7 +16,8 @@ AREA_REF = 0.30
 K_DIST = 200.0
 MAX_FORWARD = 60.0
 SEARCH_ROTATE_S = 0.8   # snurrfaser i SEARCH
-SEARCH_PAUSE_S = 2     # paus for detektering
+SEARCH_PAUSE_S = 5     # paus for detektering
+TARGET_ACQUIRE_STOP_S = 1.0  # stopp innan roboten börjar följa vald target
 
 
 class PIDController:
@@ -67,6 +68,8 @@ def main(command_queue: Queue, telemetry_queue: Queue, frame_queue: Queue) -> No
     search_next_switch = 0.0
     completed_labels = set()
     prev_state = None
+    target_stop_until = 0.0
+    locked_target_label = None
 
     while True:
         try:
@@ -94,16 +97,25 @@ def main(command_queue: Queue, telemetry_queue: Queue, frame_queue: Queue) -> No
 
             # 2. Hämta beslut från AI-agenten (Icke-blockerande)
             if time.time() - last_ai_query_time > 1.0:
+                event_for_agent = pending_event
                 dets_for_agent = [d for d in detections if d.get("label") not in completed_labels]
-                new_decision = agent.decide_action(dets_for_agent, event=pending_event)
+                new_decision = agent.decide_action(dets_for_agent, event=event_for_agent)
                 pending_event = None  # agenten har fatt händelsen, rensa har
                 action = new_decision.get("action")
                 print(f"[AI] action={new_decision.get('action')} target={new_decision.get('target_label')} | {str(new_decision.get('reasoning'))[:80]}")
-                if state != "STOP" or action != "TRACK_TARGET" or (
-                    reached_target_label is not None
-                    and new_decision.get("target_label") != reached_target_label
-                ):
+                selected_label = new_decision.get("target_label")
+                selected_target_visible = any(
+                    det.get("label") == selected_label for det in detections
+                )
+                if event_for_agent and event_for_agent.startswith("TARGET_REACHED"):
+                    locked_target_label = None
                     current_ai_decision = new_decision
+                elif locked_target_label is None:
+                    current_ai_decision = new_decision
+                    if action == "TRACK_TARGET" and selected_target_visible:
+                        locked_target_label = selected_label
+                        target_stop_until = time.time() + TARGET_ACQUIRE_STOP_S
+                        state = "STOP"
                 last_ai_query_time = time.time()
 
             # 3. Motorstyrning (max ett kommando var 40 ms -> undviker serieflood)
@@ -155,6 +167,7 @@ def main(command_queue: Queue, telemetry_queue: Queue, frame_queue: Queue) -> No
                     else:  # area >= AREA_STANN -> mattekt, redan nara nog
                         state = "STOP"
                         reached_target_label = target.get("label")
+                        locked_target_label = None
                         completed_labels.add(target.get("label"))
                         pending_event = f"TARGET_REACHED {target.get('label')}"
                         print("[MAIN] TARGET_REACHED")
@@ -172,6 +185,7 @@ def main(command_queue: Queue, telemetry_queue: Queue, frame_queue: Queue) -> No
                     elif target is not None and target.get("area", 0.0) >= AREA_STANN:
                         state = "STOP"
                         reached_target_label = target.get("label")
+                        locked_target_label = None
                         completed_labels.add(target.get("label"))
                         pending_event = f"TARGET_REACHED {target.get('label')}"
                         print("[MAIN] TARGET_REACHED")
@@ -183,7 +197,14 @@ def main(command_queue: Queue, telemetry_queue: Queue, frame_queue: Queue) -> No
                         left_spd, right_spd = pid.compute(x_ort, forward)
                         motors.set_motors(left_spd, right_spd)
                 elif state == "STOP":
-                    if action != "TRACK_TARGET" or (
+                    now = time.time()
+                    if target_stop_until > now:
+                        motors.set_motors(0.0, 0.0)
+                    elif target_stop_until > 0.0:
+                        target_stop_until = 0.0
+                        state = "TRACK"
+                        motors.set_motors(0.0, 0.0)
+                    elif action != "TRACK_TARGET" or (
                         reached_target_label is not None
                         and current_ai_decision.get("target_label") != reached_target_label
                     ):
